@@ -192,14 +192,14 @@ ProcessPointClouds<PointT>::RansacPlane(const typename pcl::PointCloud<PointT>::
 }
 
 template<typename PointT>
-void ProcessPointClouds<PointT>::ClusterHelper(size_t indice, const typename pcl::PointCloud<PointT>::Ptr &cloud,
+void ProcessPointClouds<PointT>::ClusterHelper(size_t i, const typename pcl::PointCloud<PointT>::Ptr &cloud,
                                                std::vector<size_t> &cluster, std::vector<bool> &processed, KdTree *tree,
                                                float distanceTol) {
 
-  processed[indice] = true;
-  cluster.push_back(indice);
+  processed[i] = true;
+  cluster.push_back(i);
 
-  std::vector<size_t> nearest = tree->search(cloud->points[indice], distanceTol);
+  std::vector<size_t> nearest = tree->search(cloud->points[i], distanceTol);
 
   for (size_t id : nearest) {
     if (!processed[id])

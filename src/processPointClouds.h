@@ -48,7 +48,7 @@ public:
 
   std::vector<boost::filesystem::path> streamPcd(std::string dataPath);
 
-  void ClusterHelper(size_t indice, const typename pcl::PointCloud<PointT>::Ptr &cloud, std::vector<size_t> &cluster,
+  void ClusterHelper(size_t i, const typename pcl::PointCloud<PointT>::Ptr &cloud, std::vector<size_t> &cluster,
                      std::vector<bool> &processed, KdTree *tree, float distanceTol);
 
   std::vector<typename pcl::PointCloud<PointT>::Ptr>
