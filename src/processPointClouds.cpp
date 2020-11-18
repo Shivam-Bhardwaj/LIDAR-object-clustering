@@ -7,11 +7,9 @@
 template<typename PointT>
 ProcessPointClouds<PointT>::ProcessPointClouds() {}
 
-
 //de-constructor:
 template<typename PointT>
 ProcessPointClouds<PointT>::~ProcessPointClouds() {}
-
 
 template<typename PointT>
 void ProcessPointClouds<PointT>::numPoints(typename pcl::PointCloud<PointT>::Ptr cloud) {
@@ -212,8 +210,7 @@ void ProcessPointClouds<PointT>::ClusterHelper(size_t indice, const typename pcl
 template<typename PointT>
 std::vector<typename pcl::PointCloud<PointT>::Ptr>
 ProcessPointClouds<PointT>::EuclideanCluster(const typename pcl::PointCloud<PointT>::Ptr &cloud, KdTree *tree,
-                                             float distanceTol,
-                                             int minSize, int maxSize) {
+                                             float distanceTol, int minSize, int maxSize) {
 
   std::vector<typename pcl::PointCloud<PointT>::Ptr> clusters;
   std::vector<bool> processed(cloud->points.size(), false);

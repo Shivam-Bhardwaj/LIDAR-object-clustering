@@ -7,12 +7,14 @@
 #include <thread>
 #include <unordered_set>
 
+#define FILTER_RESOLUTION 0.25
+
 #define DISTANCE_TOL_RANSAC 0.2
-#define FILTER_RESOLUTION 0.2
-#define MAX_RANSAC_ITER 100
+#define MAX_RANSAC_ITER 60
+
 #define DISTANCE_TOL_CLUSTERING 0.35
 #define MIN_POINTS_IN_CLUSTER 10
-#define MAX_POINTS_IN_CLUSTER 1000
+#define MAX_POINTS_IN_CLUSTER 800
 
 void cityBlock(pcl::visualization::PCLVisualizer::Ptr &viewer, ProcessPointClouds<pcl::PointXYZI> *pointProcessorI,
                const pcl::PointCloud<pcl::PointXYZI>::Ptr &inputCloud) {
@@ -20,8 +22,8 @@ void cityBlock(pcl::visualization::PCLVisualizer::Ptr &viewer, ProcessPointCloud
   // -----Open 3D viewer and display City Block     -----
   // ----------------------------------------------------
   auto startTime = std::chrono::steady_clock::now();
-  const auto MIN_POINT = Eigen::Vector4f(-20, -6, -3, 1);
-  const auto MAX_POINT = Eigen::Vector4f(30, 7, 2, 1);
+  const auto MIN_POINT = Eigen::Vector4f(-15, -6, -3, 1);
+  const auto MAX_POINT = Eigen::Vector4f(20, 7, 2, 1);
   auto filtered_cloud = pointProcessorI->FilterCloud(inputCloud, FILTER_RESOLUTION, MIN_POINT, MAX_POINT);
 
   auto segmented_cloud = pointProcessorI->RansacPlane(filtered_cloud, MAX_RANSAC_ITER, DISTANCE_TOL_RANSAC);
@@ -38,10 +40,9 @@ void cityBlock(pcl::visualization::PCLVisualizer::Ptr &viewer, ProcessPointCloud
 
   int clusterId = 0;
 
-  std::vector<Color> colors = {Color(1, 0, 0), Color(1, 1, 0), Color(0, 0, 1)};
   cout << "#clusters: " << clusters.size() << endl;
   for (const pcl::PointCloud<pcl::PointXYZI>::Ptr &cluster : clusters) {
-    renderPointCloud(viewer, cluster, "obstCloud" + std::to_string(clusterId), colors[clusterId % colors.size()]);
+    renderPointCloud(viewer, cluster, "obstCloud" + std::to_string(clusterId), Color(1, 1, 1));
     Box box = pointProcessorI->BoundingBox(cluster);
     renderBox(viewer, box, clusterId);
     ++clusterId;
@@ -66,7 +67,7 @@ int main(int argc, char **argv) {
   initCamera(setAngle, viewer);
 
   auto *pointProcessorI = new ProcessPointClouds<pcl::PointXYZI>();
-  std::vector<boost::filesystem::path> stream = pointProcessorI->streamPcd("../src/sensors/data/pcd/data_2");
+  std::vector<boost::filesystem::path> stream = pointProcessorI->streamPcd("../src/sensors/data/pcd/data_1");
   auto streamIterator = stream.begin();
   pcl::PointCloud<pcl::PointXYZI>::Ptr inputCloudI;
   while (!viewer->wasStopped()) {
