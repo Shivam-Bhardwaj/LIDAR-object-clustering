@@ -46,13 +46,13 @@ ProcessPointClouds<PointT>::FilterCloud(typename pcl::PointCloud<PointT>::Ptr cl
   std::vector<int> indices;
 
   pcl::CropBox<PointT> roof(true);
-  roof.setMin(Eigen::Vector4f (-1.5, -1.7, -1, 1));
+  roof.setMin(Eigen::Vector4f(-1.5, -1.7, -1, 1));
   roof.setMax(Eigen::Vector4f(2.6, 1.7, -0.4, 1));
   roof.setInputCloud(cloud_region);
   roof.filter(indices);
 
   pcl::PointIndices::Ptr inliers(new pcl::PointIndices);
-  for(int point: indices){
+  for (int point: indices) {
     inliers->indices.push_back(point);
   }
 
@@ -113,7 +113,7 @@ ProcessPointClouds<PointT>::SegmentPlane(typename pcl::PointCloud<PointT>::Ptr c
   std::cout << "plane segmentation took " << elapsedTime.count() << " milliseconds" << std::endl;
 
   std::pair<typename pcl::PointCloud<PointT>::Ptr, typename pcl::PointCloud<PointT>::Ptr> segResult = SeparateClouds(
-    inliers, cloud);
+      inliers, cloud);
   return segResult;
 }
 

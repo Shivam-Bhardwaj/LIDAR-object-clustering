@@ -3,7 +3,6 @@
 
 #include "render/render.h"
 
-
 // Structure to represent node of kd tree
 struct Node {
   pcl::PointXYZI point;
@@ -20,7 +19,7 @@ struct KdTree {
   Node *root;
 
   KdTree()
-    : root(NULL) {}
+      : root(NULL) {}
 
   void insertHelper(Node **node, int depth, pcl::PointXYZI point, int id) {
     if (*node == NULL) {

@@ -23,10 +23,10 @@ struct Ray {
   // resoultion: the magnitude of the ray's step, used for ray casting, the smaller the more accurate but the more expensive
 
   Ray(Vect3 setOrigin, double horizontalAngle, double verticalAngle, double setResolution)
-    : origin(setOrigin), resolution(setResolution), direction(resolution * cos(verticalAngle) * cos(horizontalAngle),
-                                                              resolution * cos(verticalAngle) * sin(horizontalAngle),
-                                                              resolution * sin(verticalAngle)),
-      castPosition(origin), castDistance(0) {}
+      : origin(setOrigin), resolution(setResolution), direction(resolution * cos(verticalAngle) * cos(horizontalAngle),
+                                                                resolution * cos(verticalAngle) * sin(horizontalAngle),
+                                                                resolution * sin(verticalAngle)),
+        castPosition(origin), castDistance(0) {}
 
   void rayCast(const std::vector<Car> &cars, double minDistance, double maxDistance,
                pcl::PointCloud<pcl::PointXYZ>::Ptr &cloud, double slopeAngle, double sderr) {
@@ -60,7 +60,7 @@ struct Ray {
       double ry = ((double) rand() / (RAND_MAX));
       double rz = ((double) rand() / (RAND_MAX));
       cloud->points.push_back(
-        pcl::PointXYZ(castPosition.x + rx * sderr, castPosition.y + ry * sderr, castPosition.z + rz * sderr));
+          pcl::PointXYZ(castPosition.x + rx * sderr, castPosition.y + ry * sderr, castPosition.z + rz * sderr));
     }
 
   }
@@ -80,7 +80,7 @@ struct Lidar {
   double sderr;
 
   Lidar(std::vector<Car> setCars, double setGroundSlope)
-    : cloud(new pcl::PointCloud<pcl::PointXYZ>()), position(0, 0, 2.6) {
+      : cloud(new pcl::PointCloud<pcl::PointXYZ>()), position(0, 0, 2.6) {
     // TODO:: set minDistance to 5 to remove points from roof of ego car
     minDistance = 5;
     maxDistance = 50;
