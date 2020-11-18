@@ -1,27 +1,18 @@
-/* \author Aaron Brown */
-// Create simple 3d highway enviroment using PCL
+// Create simple 3d highway environment using PCL
 // for exploring self-driving car sensors
 
-#include "sensors/lidar.h"
 #include "render/render.h"
 #include "processPointClouds.h"
-// using templates for processPointClouds so also include .cpp to help linker
 #include "processPointClouds.cpp"
-#include "kdtree.h"
 #include <thread>
 #include <unordered_set>
 
-float A, B, C;
-
-void clusterHelper(size_t indice, const pcl::PointCloud<pcl::PointXYZI>::Ptr &cloud, std::vector<size_t> &cluster,
-                   std::vector<bool> &processed, KdTree *tree, float distanceTol);
-
-std::vector<pcl::PointCloud<pcl::PointXYZI>::Ptr>
-euclideanCluster(const pcl::PointCloud<pcl::PointXYZI>::Ptr &cloud, KdTree *tree, float distanceTol, int minSize,
-                 int maxSize);
-
-std::pair<pcl::PointCloud<pcl::PointXYZI>::Ptr, pcl::PointCloud<pcl::PointXYZI>::Ptr>
-RansacPlane(const pcl::PointCloud<pcl::PointXYZI>::Ptr &cloud, int maxIterations, float distanceTol);
+#define DISTANCE_TOL_RANSAC 0.2
+#define FILTER_RESOLUTION 0.2
+#define MAX_RANSAC_ITER 100
+#define DISTANCE_TOL_CLUSTERING 0.35
+#define MIN_POINTS_IN_CLUSTER 10
+#define MAX_POINTS_IN_CLUSTER 1000
 
 void cityBlock(pcl::visualization::PCLVisualizer::Ptr &viewer, ProcessPointClouds<pcl::PointXYZI> *pointProcessorI,
                const pcl::PointCloud<pcl::PointXYZI>::Ptr &inputCloud) {
@@ -29,29 +20,28 @@ void cityBlock(pcl::visualization::PCLVisualizer::Ptr &viewer, ProcessPointCloud
   // -----Open 3D viewer and display City Block     -----
   // ----------------------------------------------------
   auto startTime = std::chrono::steady_clock::now();
-  auto cc = pointProcessorI->FilterCloud(inputCloud, 0.2,
-                                         Eigen::Vector4f(-20, -6, -3, 1), Eigen::Vector4f(30, 7, 2, 1));
+  const auto MIN_POINT = Eigen::Vector4f(-20, -6, -3, 1);
+  const auto MAX_POINT = Eigen::Vector4f(30, 7, 2, 1);
+  auto filtered_cloud = pointProcessorI->FilterCloud(inputCloud, FILTER_RESOLUTION, MIN_POINT, MAX_POINT);
 
-  std::pair<pcl::PointCloud<pcl::PointXYZI>::Ptr, pcl::PointCloud<pcl::PointXYZI>::Ptr> segmented_cloud = RansacPlane(
-      cc, 100, 0.2);
+  auto segmented_cloud = pointProcessorI->RansacPlane(filtered_cloud, MAX_RANSAC_ITER, DISTANCE_TOL_RANSAC);
 
   auto *tree = new KdTree;
 
   for (size_t i = 0; i < segmented_cloud.first->points.size(); i++)
     tree->insert(segmented_cloud.first->points[i], i);
 
-  std::vector<pcl::PointCloud<pcl::PointXYZI>::Ptr> clusters = euclideanCluster(segmented_cloud.first, tree, 0.35,
-                                                                                int(A), int(B));
+  auto clusters = pointProcessorI->EuclideanCluster(segmented_cloud.first, tree,
+                                                    DISTANCE_TOL_CLUSTERING,
+                                                    MIN_POINTS_IN_CLUSTER,
+                                                    MAX_POINTS_IN_CLUSTER);
 
   int clusterId = 0;
 
   std::vector<Color> colors = {Color(1, 0, 0), Color(1, 1, 0), Color(0, 0, 1)};
-  cout << "cluster size" << clusters.size() << endl;
+  cout << "#clusters: " << clusters.size() << endl;
   for (const pcl::PointCloud<pcl::PointXYZI>::Ptr &cluster : clusters) {
-    std::cout << "cluster size ";
-    pointProcessorI->numPoints(cluster);
     renderPointCloud(viewer, cluster, "obstCloud" + std::to_string(clusterId), colors[clusterId % colors.size()]);
-
     Box box = pointProcessorI->BoundingBox(cluster);
     renderBox(viewer, box, clusterId);
     ++clusterId;
@@ -68,25 +58,9 @@ void cityBlock(pcl::visualization::PCLVisualizer::Ptr &viewer, ProcessPointCloud
 //setAngle: SWITCH CAMERA ANGLE {XY, TopDown, Side, FPS}
 void initCamera(CameraAngle setAngle, pcl::visualization::PCLVisualizer::Ptr &viewer);
 
-
 int main(int argc, char **argv) {
   std::cout << "starting environment" << std::endl;
-  int option = 0;
-  while ((option = getopt(argc, argv, "a:b:c:")) != -1) {
-    switch (option) {
-      case 'a' :
-        A = std::stof(std::string(optarg));
-        break;
-      case 'b' :
-        B = std::stof(std::string(optarg));
-        break;
-      case 'c':
-        C = std::stof(std::string(optarg));
-        break;
-      default:
-        return EXIT_SUCCESS;
-    }
-  }
+
   pcl::visualization::PCLVisualizer::Ptr viewer(new pcl::visualization::PCLVisualizer("3D Viewer"));
   CameraAngle setAngle = XY;
   initCamera(setAngle, viewer);
@@ -104,7 +78,6 @@ int main(int argc, char **argv) {
     // Load pcd and run obstacle detection process
     inputCloudI = pointProcessorI->loadPcd((*streamIterator).string());
     cityBlock(viewer, pointProcessorI, inputCloudI);
-//    std::this_thread::sleep_for(std::chrono::milliseconds (50));
     streamIterator++;
     if (streamIterator == stream.end())
       streamIterator = stream.begin();
@@ -139,119 +112,4 @@ void initCamera(CameraAngle setAngle, pcl::visualization::PCLVisualizer::Ptr &vi
     viewer->addCoordinateSystem(1.0);
 }
 
-void clusterHelper(size_t indice, const pcl::PointCloud<pcl::PointXYZI>::Ptr &cloud, std::vector<size_t> &cluster,
-                   std::vector<bool> &processed, KdTree *tree, float distanceTol) {
-  processed[indice] = true;
-  cluster.push_back(indice);
 
-  std::vector<size_t> nearest = tree->search(cloud->points[indice], distanceTol);
-
-  for (size_t id : nearest) {
-    if (!processed[id])
-      clusterHelper(id, cloud, cluster, processed, tree, distanceTol);
-  }
-}
-
-std::vector<pcl::PointCloud<pcl::PointXYZI>::Ptr>
-euclideanCluster(const pcl::PointCloud<pcl::PointXYZI>::Ptr &cloud, KdTree *tree, float distanceTol, int minSize,
-                 int maxSize) {
-  std::vector<pcl::PointCloud<pcl::PointXYZI>::Ptr> clusters;
-  std::vector<bool> processed(cloud->points.size(), false);
-
-  for (size_t idx = 0; idx < cloud->points.size(); ++idx) {
-    if (!processed[idx]) {
-      std::vector<size_t> cluster_idx;
-      pcl::PointCloud<pcl::PointXYZI>::Ptr cluster(new pcl::PointCloud<pcl::PointXYZI>);
-
-      clusterHelper(idx, cloud, cluster_idx, processed, tree, distanceTol);
-
-      if (cluster_idx.size() >= minSize && cluster_idx.size() <= maxSize) {
-        for (size_t i : cluster_idx) {
-          cluster->points.push_back(cloud->points[i]);
-        }
-
-        cluster->width = cluster->points.size();
-        cluster->height = 1;
-
-        clusters.push_back(cluster);
-      } else {
-        for (size_t i = 1; i < cluster_idx.size(); i++) {
-          processed[cluster_idx[i]] = false;
-        }
-      }
-    }
-  }
-  return clusters;
-}
-
-std::pair<pcl::PointCloud<pcl::PointXYZI>::Ptr, pcl::PointCloud<pcl::PointXYZI>::Ptr>
-RansacPlane(const pcl::PointCloud<pcl::PointXYZI>::Ptr &cloud, int maxIterations, float distanceTol) {
-  std::unordered_set<int> inliersResult;
-  srand(time(NULL));
-
-  while (maxIterations--) {
-    std::unordered_set<int> inliers;
-
-    while (inliers.size() < 3)
-      inliers.insert(rand() % (cloud->points.size()));
-
-    float x1, y1, z1, x2, y2, z2, x3, y3, z3;
-
-    auto iter = inliers.begin();
-
-    x1 = cloud->points[*iter].x;
-    y1 = cloud->points[*iter].y;
-    z1 = cloud->points[*iter].z;
-
-    iter++;
-
-    x2 = cloud->points[*iter].x;
-    y2 = cloud->points[*iter].y;
-    z2 = cloud->points[*iter].z;
-
-    iter++;
-
-    x3 = cloud->points[*iter].x;
-    y3 = cloud->points[*iter].y;
-    z3 = cloud->points[*iter].z;
-
-    float a = (y2 - y1) * (z3 - z1) - (z2 - z1) * (y3 - y1);
-    float b = (z2 - z1) * (x3 - x1) - (x2 - x1) * (z3 - z1);
-    float c = (x2 - x1) * (y3 - y1) - (y2 - y1) * (x3 - x1);
-    float d = -(a * x1 + b * y1 + c * z1);
-
-    for (int index = 0; index < cloud->points.size(); index++) {
-      if (inliers.count(index) > 0)
-        continue;
-
-      pcl::PointXYZI point = cloud->points[index];
-
-      float x4 = point.x;
-      float y4 = point.y;
-      float z4 = point.z;
-
-      float dist = fabs(a * x4 + b * y4 + c * z4 + d) / sqrt(a * a + b * b + c * c);
-
-      if (dist <= distanceTol)
-        inliers.insert(index);
-    }
-
-    if (inliers.size() > inliersResult.size())
-      inliersResult = inliers;
-  }
-
-  pcl::PointCloud<pcl::PointXYZI>::Ptr cloudInliers(new pcl::PointCloud<pcl::PointXYZI>());
-  pcl::PointCloud<pcl::PointXYZI>::Ptr cloudOutliers(new pcl::PointCloud<pcl::PointXYZI>());
-
-  for (int index = 0; index < cloud->points.size(); index++) {
-    pcl::PointXYZI point = cloud->points[index];
-
-    if (inliersResult.count(index))
-      cloudInliers->points.push_back(point);
-    else
-      cloudOutliers->points.push_back(point);
-  }
-
-  return std::pair<pcl::PointCloud<pcl::PointXYZI>::Ptr, pcl::PointCloud<pcl::PointXYZI>::Ptr>(
-      cloudOutliers, cloudInliers);
-}
